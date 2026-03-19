@@ -29,16 +29,16 @@
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-brand-border;
   }
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/30;
+    @apply bg-brand-background text-brand-foreground antialiased selection:bg-brand-primary/30;
   }
 }
 
 @layer utilities {
   .glass-panel {
-    @apply bg-card/60 backdrop-blur-md border border-white/5 shadow-xl;
+    @apply bg-brand-card/60 backdrop-blur-md border border-white/5 shadow-xl;
   }
   .glass-border {
     @apply border border-white/10;
