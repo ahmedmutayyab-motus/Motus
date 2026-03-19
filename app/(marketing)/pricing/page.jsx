@@ -59,8 +59,8 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <button className={`w-full py-3 px-4 rounded-md font-medium transition-all ${plan.highlight ? 'bg-brand-primary text-white hover:bg-brand-primaryHover shadow-lg' : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'}`}>
-                {plan.cta}
+              <button disabled title="Billing integration coming in Phase 5" className={`w-full py-3 px-4 rounded-md font-medium transition-all opacity-50 cursor-not-allowed ${plan.highlight ? 'bg-brand-primary text-white shadow-lg' : 'bg-white/5 border border-white/10 text-white'}`}>
+                {plan.cta} (Phase 5)
               </button>
             </div>
           ))}

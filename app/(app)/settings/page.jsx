@@ -11,7 +11,7 @@ export default function SettingsPlaceholderPage() {
         Configure your entire Motus instance, billing, and team permissions.
       </p>
       <div className="bg-obsidian-900 border border-white/5 rounded-lg p-4 w-full text-left">
-        <div className="text-xs font-semibold text-brand-primary uppercase tracking-wider mb-2">Coming in Phase 2</div>
+        <div className="text-xs font-semibold text-brand-primary uppercase tracking-wider mb-2">Coming in Phase 5</div>
         <ul className="text-sm text-brand-muted space-y-2">
           <li>• Profile & Workspace configuration</li>
           <li>• Connected integrations & Mailboxes</li>

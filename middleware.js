@@ -69,9 +69,15 @@ export async function middleware(request) {
                      request.nextUrl.pathname.startsWith('/settings');
 
   if (isAppRoute && !user) {
-    // If auth is configured but no user, redirect to login
-    // return NextResponse.redirect(new URL('/login', request.url))
-    // Removed redirect for Phase 1 previewability
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || 
+                      request.nextUrl.pathname.startsWith('/signup') || 
+                      request.nextUrl.pathname.startsWith('/forgot-password');
+
+  if (isAuthRoute && user) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return response

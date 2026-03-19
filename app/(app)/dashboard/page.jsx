@@ -36,9 +36,9 @@ export default function DashboardPage() {
 
   const stats = [
     { label: "Total Contacts", value: metrics.loading ? "..." : metrics.total, icon: Users, change: `${metrics.newThisWeek} new this week` },
-    { label: "Active Sequences", value: "0", icon: Activity, change: "Phase 3 feature" },
-    { label: "Emails Sent", value: "0", icon: Send, change: "Phase 3 feature" },
-    { label: "Replies", value: "0", icon: Reply, change: "Phase 3 feature" },
+    { label: "Active Sequences", value: "0", icon: Activity, change: "Phase 5 metric" },
+    { label: "Emails Sent", value: "0", icon: Send, change: "Phase 5 metric" },
+    { label: "Replies", value: "0", icon: Reply, change: "Phase 5 metric" },
   ];
 
   return (
