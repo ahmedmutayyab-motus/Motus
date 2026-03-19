@@ -1,4 +1,4 @@
--- Phase 2 Complete Minimal Schema for Motus
+-- Motus minimal working schema
 
 -- Workspaces
 CREATE TABLE IF NOT EXISTS public.workspaces (
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.workspace_members (
     user_id UUID NOT NULL,
     role TEXT DEFAULT 'member',
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(workspace_id, user_id)
+    UNIQUE (workspace_id, user_id)
 );
 
 -- Contacts
@@ -40,9 +40,7 @@ CREATE TABLE IF NOT EXISTS public.contacts (
     source TEXT DEFAULT 'Manual',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    -- Constraint: either email or full_name+company is often needed
-    CONSTRAINT contacts_workspace_email_key UNIQUE NULLS NOT DISTINCTION (workspace_id, email)
+    CONSTRAINT contacts_workspace_email_key UNIQUE (workspace_id, email)
 );
 
 -- AI Generations
@@ -69,13 +67,13 @@ CREATE TABLE IF NOT EXISTS public.usage_events (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Sequences Phase 4
+-- Sequences
 CREATE TABLE IF NOT EXISTS public.sequences (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     description TEXT,
-    status TEXT DEFAULT 'draft', 
+    status TEXT DEFAULT 'draft',
     created_by UUID NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -85,7 +83,7 @@ CREATE TABLE IF NOT EXISTS public.sequence_steps (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     sequence_id UUID REFERENCES public.sequences(id) ON DELETE CASCADE,
     step_order INTEGER NOT NULL,
-    step_type TEXT NOT NULL, 
+    step_type TEXT NOT NULL,
     delay_days INTEGER DEFAULT 1,
     subject_template TEXT,
     body_template TEXT,
@@ -99,19 +97,13 @@ CREATE TABLE IF NOT EXISTS public.sequence_enrollments (
     workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
     sequence_id UUID REFERENCES public.sequences(id) ON DELETE CASCADE,
     contact_id UUID REFERENCES public.contacts(id) ON DELETE CASCADE,
-    status TEXT DEFAULT 'active', 
+    status TEXT DEFAULT 'active',
     current_step INTEGER DEFAULT 1,
     enrolled_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (sequence_id, contact_id)
 );
 
--- Stub RLS execution (to be enabled manually in UI or via triggers)
-ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.workspace_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.contacts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.ai_generations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.usage_events ENABLE ROW LEVEL SECURITY;
-
--- Note: Policies generally expect auth.uid() bounded logic
--- e.g. CREATE POLICY "Users can access their workspace contacts" ON public.contacts...
+-- IMPORTANT:
+-- Do NOT enable RLS yet unless you are also creating the correct policies.
+-- RLS without policies can break signup/login flows.
