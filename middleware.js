@@ -1,0 +1,84 @@
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
+
+export async function middleware(request) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
+
+  // Skip middleware if SUPABASE URL/KEY are not defined (Phase 1 design only)
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return response;
+  }
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        get(name) {
+          return request.cookies.get(name)?.value
+        },
+        set(name, value, options) {
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+        },
+        remove(name, options) {
+          request.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
+        },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const isAppRoute = request.nextUrl.pathname.startsWith('/dashboard') || 
+                     request.nextUrl.pathname.startsWith('/contacts') || 
+                     request.nextUrl.pathname.startsWith('/ai-writer') || 
+                     request.nextUrl.pathname.startsWith('/sequences') || 
+                     request.nextUrl.pathname.startsWith('/inbox') || 
+                     request.nextUrl.pathname.startsWith('/settings');
+
+  if (isAppRoute && !user) {
+    // If auth is configured but no user, redirect to login
+    // return NextResponse.redirect(new URL('/login', request.url))
+    // Removed redirect for Phase 1 previewability
+  }
+
+  return response
+}
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}
