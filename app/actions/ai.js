@@ -3,25 +3,25 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-// Fallback dummy resolving for Phase 3
-async function ensureWorkspaceAndUser(supabase) {
-  // Try to get actual user from session
-  const { data: { user } } = await supabase.auth.getUser();
-  const userId = user?.id || "00000000-0000-0000-0000-000000000000"; // Dummy ID if not authed
+// Resolves current authenticated user's workspace. Throws if unauthenticated.
+async function getWorkspaceContext(supabase) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) throw new Error("Not authenticated.");
 
-  const { data: workspaces } = await supabase.from("workspaces").select("id").limit(1);
-  let workspaceId = workspaces?.[0]?.id;
-  
-  if (!workspaceId) {
-    const { data: newWs } = await supabase.from("workspaces").insert({ name: "My Workspace" }).select("id").single();
-    workspaceId = newWs?.id;
-  }
-  return { workspaceId, userId };
+  const { data: membership, error: wsError } = await supabase
+    .from("workspace_members")
+    .select("workspace_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .single();
+
+  if (wsError || !membership) throw new Error("No workspace found for this user.");
+  return { workspaceId: membership.workspace_id, userId: user.id };
 }
 
 export async function generateAiCopy(mode, promptDetails, contactId = null, tone = null) {
   const supabase = createClient();
-  const { workspaceId, userId } = await ensureWorkspaceAndUser(supabase);
+  const { workspaceId, userId } = await getWorkspaceContext(supabase);
 
   // 1. Gather Contact Context
   let contactContext = "";
@@ -120,7 +120,7 @@ export async function saveAiGeneration(payload) {
 
 export async function getRecentGenerations() {
   const supabase = createClient();
-  const { workspaceId } = await ensureWorkspaceAndUser(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   const { data, error } = await supabase
     .from("ai_generations")

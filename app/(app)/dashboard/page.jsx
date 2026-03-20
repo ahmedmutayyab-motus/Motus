@@ -82,7 +82,7 @@ export default function DashboardPage() {
              <>
                <Activity className="h-10 w-10 text-brand-muted mb-4 opacity-50" />
                <p className="text-brand-muted font-medium mb-1">Sequence Activity Planner</p>
-               <p className="text-sm text-brand-muted/70 max-w-sm">Charts and delivery statistics will populate here automatically once Phase 3 sequence engines are online.</p>
+               <p className="text-sm text-brand-muted/70 max-w-sm">Charts and delivery statistics will populate here automatically once Phase 5 sequence engines are online.</p>
              </>
           )}
         </div>

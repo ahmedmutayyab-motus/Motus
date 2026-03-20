@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 /**
@@ -52,11 +51,18 @@ export async function signUp(formData) {
   if (authError) throw new Error(authError.message);
   if (!authData.user) throw new Error("User creation failed.");
 
+  // If email confirmation is required, Supabase returns a user BUT no session.
+  // In that case we cannot create the workspace yet (no authed context).
+  // Redirect to a holding page instead of crashing.
+  if (!authData.session) {
+    return redirect("/check-email");
+  }
+
   // 2. Create Default Workspace
   const { data: workspace, error: wsError } = await supabase
     .from("workspaces")
     .insert([
-      { name: `${firstName}'s Workspace` }
+      { name: `${firstName || email.split("@")[0]}'s Workspace` }
     ])
     .select()
     .single();

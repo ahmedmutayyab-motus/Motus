@@ -4,28 +4,27 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 /**
- * Ensures a stub workspace exists for Phase 2 user testing
- * In production this would be handled during onboarding
+ * Resolves the current authenticated user and their primary workspace.
+ * Throws if not authenticated or no workspace found.
  */
-async function ensureWorkspace(supabase) {
-  const { data: workspaces } = await supabase.from("workspaces").select("id").limit(1);
-  if (workspaces && workspaces.length > 0) return workspaces[0].id;
-  
-  // Create default workspace if none exists
-  const { data: newWs, error } = await supabase
-    .from("workspaces")
-    .insert({ name: "My Workspace" })
-    .select("id")
+async function getWorkspaceContext(supabase) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) throw new Error("Not authenticated.");
+
+  const { data: membership, error: wsError } = await supabase
+    .from("workspace_members")
+    .select("workspace_id")
+    .eq("user_id", user.id)
+    .limit(1)
     .single();
-    
-  if (error) throw new Error("Could not initialize workspace");
-  return newWs.id;
+
+  if (wsError || !membership) throw new Error("No workspace found for this user.");
+  return { workspaceId: membership.workspace_id, userId: user.id };
 }
 
 export async function getContacts(search = "", stageFilter = "all") {
   const supabase = createClient();
-  // Phase 2 workspace stub resolving
-  const workspaceId = await ensureWorkspace(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   let query = supabase
     .from("contacts")
@@ -49,7 +48,7 @@ export async function getContacts(search = "", stageFilter = "all") {
 
 export async function addContact(formData) {
   const supabase = createClient();
-  const workspaceId = await ensureWorkspace(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   const newContact = {
     workspace_id: workspaceId,
@@ -82,7 +81,7 @@ export async function addContact(formData) {
 
 export async function updateContact(id, formData) {
   const supabase = createClient();
-  const workspaceId = await ensureWorkspace(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   const updates = {
     ...formData,
@@ -106,7 +105,7 @@ export async function updateContact(id, formData) {
 
 export async function deleteContact(id) {
   const supabase = createClient();
-  const workspaceId = await ensureWorkspace(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   const { error } = await supabase
     .from("contacts")
@@ -123,7 +122,7 @@ export async function deleteContact(id) {
 
 export async function importContactsBatch(contactsArray) {
   const supabase = createClient();
-  const workspaceId = await ensureWorkspace(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   // Normalize and bind workspace id
   const payload = contactsArray.map(c => ({

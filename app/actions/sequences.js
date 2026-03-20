@@ -3,23 +3,25 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-// Minimal fallback session resolution
-async function ensureWorkspaceAndUser(supabase) {
-  const { data: { user } } = await supabase.auth.getUser();
-  const userId = user?.id || "00000000-0000-0000-0000-000000000000";
+// Resolves current authenticated user's workspace. Throws if unauthenticated.
+async function getWorkspaceContext(supabase) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) throw new Error("Not authenticated.");
 
-  const { data: workspaces } = await supabase.from("workspaces").select("id").limit(1);
-  let workspaceId = workspaces?.[0]?.id;
-  if (!workspaceId) {
-    const { data: newWs } = await supabase.from("workspaces").insert({ name: "My Workspace" }).select("id").single();
-    workspaceId = newWs?.id;
-  }
-  return { workspaceId, userId };
+  const { data: membership, error: wsError } = await supabase
+    .from("workspace_members")
+    .select("workspace_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .single();
+
+  if (wsError || !membership) throw new Error("No workspace found for this user.");
+  return { workspaceId: membership.workspace_id, userId: user.id };
 }
 
 export async function getSequences() {
   const supabase = createClient();
-  const { workspaceId } = await ensureWorkspaceAndUser(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   const { data, error } = await supabase
     .from("sequences")
@@ -36,7 +38,7 @@ export async function getSequences() {
 
 export async function getSequenceById(id) {
   const supabase = createClient();
-  const { workspaceId } = await ensureWorkspaceAndUser(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   const { data, error } = await supabase
     .from("sequences")
@@ -64,7 +66,7 @@ export async function getSequenceById(id) {
 
 export async function createSequence(name, description) {
   const supabase = createClient();
-  const { workspaceId, userId } = await ensureWorkspaceAndUser(supabase);
+  const { workspaceId, userId } = await getWorkspaceContext(supabase);
 
   const { data, error } = await supabase.from("sequences").insert({
     workspace_id: workspaceId,
@@ -81,7 +83,7 @@ export async function createSequence(name, description) {
 
 export async function updateSequenceStatus(id, status) {
   const supabase = createClient();
-  const { workspaceId } = await ensureWorkspaceAndUser(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   const { error } = await supabase.from("sequences")
     .update({ status, updated_at: new Date() })
@@ -95,7 +97,7 @@ export async function updateSequenceStatus(id, status) {
 
 export async function updateSequenceMetadata(id, name, description) {
   const supabase = createClient();
-  const { workspaceId } = await ensureWorkspaceAndUser(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   const { error } = await supabase.from("sequences")
     .update({ name, description, updated_at: new Date() })
@@ -108,7 +110,7 @@ export async function updateSequenceMetadata(id, name, description) {
 
 export async function saveSequenceSteps(sequenceId, steps) {
   const supabase = createClient();
-  const { workspaceId } = await ensureWorkspaceAndUser(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   // Validate ownership first
   const { data: seq } = await supabase.from("sequences").select("id").eq("id", sequenceId).eq("workspace_id", workspaceId).single();
@@ -137,7 +139,7 @@ export async function saveSequenceSteps(sequenceId, steps) {
 
 export async function enrollContacts(sequenceId, contactIds) {
   const supabase = createClient();
-  const { workspaceId } = await ensureWorkspaceAndUser(supabase);
+  const { workspaceId } = await getWorkspaceContext(supabase);
 
   // Filter existing enrollments natively avoiding unique constraint crashes
   const { data: existing } = await supabase.from("sequence_enrollments")
