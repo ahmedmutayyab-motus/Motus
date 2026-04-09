@@ -133,3 +133,19 @@ CREATE TABLE IF NOT EXISTS public.inbox_messages (
     is_ai_generated BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Phase 7: Subscriptions / Billing
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE UNIQUE,
+    stripe_customer_id TEXT,
+    stripe_subscription_id TEXT,
+    plan_key TEXT DEFAULT 'free',
+    billing_status TEXT DEFAULT 'active',
+    current_period_end TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Add plan_key to workspaces if not present
+ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS plan_key TEXT DEFAULT 'free';

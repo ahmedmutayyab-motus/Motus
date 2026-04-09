@@ -23,7 +23,7 @@ export default function AppSidebar() {
       </div>
       
       <div className="p-4 border-b border-white/5">
-        <div title="Workspace switching (Phase 7)" className="w-full flex items-center justify-between bg-white/5 p-2 rounded-md transition-colors border border-white/5 opacity-70 cursor-not-allowed">
+        <div title="Multi-workspace switching coming in a future release" className="w-full flex items-center justify-between bg-white/5 p-2 rounded-md transition-colors border border-white/5 opacity-70 cursor-not-allowed">
           <div className="flex items-center">
             <div className="w-6 h-6 bg-brand-primary rounded mr-2 flex items-center justify-center text-xs font-bold text-white">W</div>
             <span className="text-sm font-medium text-white">Current Workspace</span>
