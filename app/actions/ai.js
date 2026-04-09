@@ -1,32 +1,19 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getWorkspaceContext } from "@/lib/workspace";
 import { revalidatePath } from "next/cache";
 
-// Resolves current authenticated user's workspace. Throws if unauthenticated.
-async function getWorkspaceContext(supabase) {
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) throw new Error("Not authenticated.");
-
-  const { data: membership, error: wsError } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .limit(1)
-    .single();
-
-  if (wsError || !membership) throw new Error("No workspace found for this user.");
-  return { workspaceId: membership.workspace_id, userId: user.id };
-}
-
 export async function generateAiCopy(mode, promptDetails, contactId = null, tone = null) {
-  const supabase = createClient();
-  const { workspaceId, userId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId, userId } = await getWorkspaceContext();
 
   // 1. Gather Contact Context
   let contactContext = "";
   if (contactId) {
-    const { data: contact } = await supabase.from("contacts").select("*").eq("id", contactId).single();
+    const { data: contact } = await supabase
+      .from("contacts")
+      .select("*")
+      .eq("id", contactId)
+      .single();
     if (contact) {
       contactContext = `
       CONTEXT ABOUT RECIPIENT:
@@ -53,13 +40,13 @@ export async function generateAiCopy(mode, promptDetails, contactId = null, tone
 
   // 3. Call xAI server-side safely
   let outputText = "";
-  let modelUsed = "grok-beta"; // generic fallback name
+  let modelUsed = "grok-beta";
   
   const apiKey = process.env.XAI_API_KEY;
   if (!apiKey || apiKey === "your-xai-grok-api-key") {
-    // Phase 3 Stub if real key isn't provided locally
-    await new Promise(r => setTimeout(r, 1500)); // Simulate latency
-    outputText = `[Grok Simulation]\nHi there,\n\nI noticed your work and wanted to reach out regarding the ${mode} request you made. Given your instructions: "${promptDetails}", I believe we could align nicely.\n\nBest,\nMotus AI`;
+    // Honest stub when API key is not configured
+    await new Promise(r => setTimeout(r, 1200));
+    outputText = `[AI Simulation — xAI key not configured]\n\nHi there,\n\nBased on your instructions regarding "${mode}", here is a sample draft. Configure your XAI_API_KEY environment variable to enable real Grok-powered generation.\n\nBest,\nMotus AI`;
   } else {
     // Real Grok execution
     const response = await fetch("https://api.x.ai/v1/chat/completions", {
@@ -79,29 +66,37 @@ export async function generateAiCopy(mode, promptDetails, contactId = null, tone
     });
 
     if (!response.ok) {
-      // Prevent leaking raw provider error stack traces to the client
-      throw new Error(`The AI service is currently responding with an error. Please try again later.`);
+      const status = response.status;
+      if (status === 402 || status === 429) {
+        throw new Error("AI generation unavailable: API credits exhausted or rate limit reached. Please check your xAI account.");
+      }
+      throw new Error(`AI service error (${status}). Please try again later.`);
     }
 
     const data = await response.json();
-    outputText = data.choices[0].message.content;
+    outputText = data.choices?.[0]?.message?.content;
+    if (!outputText) throw new Error("AI returned an empty response. Please try again.");
     modelUsed = data.model || modelUsed;
   }
 
-  // 4. Record Usage Event (Only on success)
-  await supabase.from("usage_events").insert({
-    workspace_id: workspaceId,
-    user_id: userId,
-    event_type: "ai_generation",
-    units: 1,
-    metadata_json: { mode, tone, model: modelUsed }
-  });
+  // 4. Track usage event (non-blocking — failure here shouldn't crash generation)
+  try {
+    await supabase.from("usage_events").insert({
+      workspace_id: workspaceId,
+      user_id: userId,
+      event_type: "ai_generation",
+      units: 1,
+      metadata_json: { mode, tone, model: modelUsed }
+    });
+  } catch {
+    // Non-critical — ignore usage tracking failure
+  }
 
   return { output: outputText, mode, prompt_summary: promptDetails, contact_id: contactId, workspaceId, userId };
 }
 
 export async function saveAiGeneration(payload) {
-  const supabase = createClient();
+  const { supabase } = await getWorkspaceContext();
   
   const { data, error } = await supabase.from("ai_generations").insert({
     workspace_id: payload.workspaceId,
@@ -119,8 +114,7 @@ export async function saveAiGeneration(payload) {
 }
 
 export async function getRecentGenerations() {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
   const { data, error } = await supabase
     .from("ai_generations")

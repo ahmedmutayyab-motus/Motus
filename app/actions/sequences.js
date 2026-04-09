@@ -1,27 +1,10 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getWorkspaceContext } from "@/lib/workspace";
 import { revalidatePath } from "next/cache";
 
-// Resolves current authenticated user's workspace. Throws if unauthenticated.
-async function getWorkspaceContext(supabase) {
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) throw new Error("Not authenticated.");
-
-  const { data: membership, error: wsError } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .limit(1)
-    .single();
-
-  if (wsError || !membership) throw new Error("No workspace found for this user.");
-  return { workspaceId: membership.workspace_id, userId: user.id };
-}
-
 export async function getSequences() {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
   const { data, error } = await supabase
     .from("sequences")
@@ -33,12 +16,11 @@ export async function getSequences() {
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return data;
+  return data || [];
 }
 
 export async function getSequenceById(id) {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
   const { data, error } = await supabase
     .from("sequences")
@@ -47,7 +29,7 @@ export async function getSequenceById(id) {
       sequence_steps (*),
       sequence_enrollments (
         id, status, current_step, enrolled_at,
-        contacts (id, first_name, last_name, email, company)
+        contacts (id, first_name, last_name, full_name, email, company)
       )
     `)
     .eq("workspace_id", workspaceId)
@@ -56,7 +38,7 @@ export async function getSequenceById(id) {
 
   if (error) throw new Error("Sequence not found or restricted.");
   
-  // Sort steps
+  // Sort steps by order
   if (data?.sequence_steps) {
     data.sequence_steps.sort((a, b) => a.step_order - b.step_order);
   }
@@ -65,15 +47,14 @@ export async function getSequenceById(id) {
 }
 
 export async function createSequence(name, description) {
-  const supabase = createClient();
-  const { workspaceId, userId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId, userId } = await getWorkspaceContext();
 
   const { data, error } = await supabase.from("sequences").insert({
     workspace_id: workspaceId,
     created_by: userId,
     name,
-    description,
-    status: 'draft'
+    description: description || "",
+    status: "draft"
   }).select().single();
 
   if (error) throw new Error(error.message);
@@ -82,11 +63,10 @@ export async function createSequence(name, description) {
 }
 
 export async function updateSequenceStatus(id, status) {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
   const { error } = await supabase.from("sequences")
-    .update({ status, updated_at: new Date() })
+    .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("workspace_id", workspaceId);
 
@@ -96,11 +76,10 @@ export async function updateSequenceStatus(id, status) {
 }
 
 export async function updateSequenceMetadata(id, name, description) {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
   const { error } = await supabase.from("sequences")
-    .update({ name, description, updated_at: new Date() })
+    .update({ name, description, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("workspace_id", workspaceId);
 
@@ -109,14 +88,18 @@ export async function updateSequenceMetadata(id, name, description) {
 }
 
 export async function saveSequenceSteps(sequenceId, steps) {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
   // Validate ownership first
-  const { data: seq } = await supabase.from("sequences").select("id").eq("id", sequenceId).eq("workspace_id", workspaceId).single();
+  const { data: seq } = await supabase
+    .from("sequences")
+    .select("id")
+    .eq("id", sequenceId)
+    .eq("workspace_id", workspaceId)
+    .single();
   if (!seq) throw new Error("Sequence not found or restricted.");
 
-  // Delete old steps replacing entirely payload for simplicity (good for structural drafts)
+  // Delete old steps and replace entirely
   await supabase.from("sequence_steps").delete().eq("sequence_id", sequenceId);
 
   if (steps && steps.length > 0) {
@@ -124,7 +107,7 @@ export async function saveSequenceSteps(sequenceId, steps) {
       sequence_id: sequenceId,
       step_order: idx + 1,
       step_type: s.step_type,
-      delay_days: s.delay_days || 1,
+      delay_days: s.delay_days ?? 1,
       subject_template: s.subject_template || null,
       body_template: s.body_template || null,
       task_title: s.task_title || null
@@ -138,11 +121,11 @@ export async function saveSequenceSteps(sequenceId, steps) {
 }
 
 export async function enrollContacts(sequenceId, contactIds) {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
-  // Filter existing enrollments natively avoiding unique constraint crashes
-  const { data: existing } = await supabase.from("sequence_enrollments")
+  // Filter already-enrolled contacts to avoid unique constraint violations
+  const { data: existing } = await supabase
+    .from("sequence_enrollments")
     .select("contact_id")
     .eq("sequence_id", sequenceId)
     .in("contact_id", contactIds);
@@ -164,5 +147,9 @@ export async function enrollContacts(sequenceId, contactIds) {
   }
 
   revalidatePath(`/sequences/${sequenceId}`);
-  return { requested: contactIds.length, enrolled: newEnrollments.length, skipped: existingSet.size };
+  return { 
+    requested: contactIds.length, 
+    enrolled: newEnrollments.length, 
+    skipped: existingSet.size 
+  };
 }

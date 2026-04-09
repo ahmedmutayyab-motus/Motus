@@ -1,30 +1,10 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { getWorkspaceContext } from "@/lib/workspace";
 import { revalidatePath } from "next/cache";
 
-/**
- * Resolves the current authenticated user and their primary workspace.
- * Throws if not authenticated or no workspace found.
- */
-async function getWorkspaceContext(supabase) {
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) throw new Error("Not authenticated.");
-
-  const { data: membership, error: wsError } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .limit(1)
-    .single();
-
-  if (wsError || !membership) throw new Error("No workspace found for this user.");
-  return { workspaceId: membership.workspace_id, userId: user.id };
-}
-
 export async function getContacts(search = "", stageFilter = "all") {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
   let query = supabase
     .from("contacts")
@@ -47,14 +27,13 @@ export async function getContacts(search = "", stageFilter = "all") {
 }
 
 export async function addContact(formData) {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
   const newContact = {
     workspace_id: workspaceId,
     first_name: formData.first_name || null,
     last_name: formData.last_name || null,
-    full_name: `${formData.first_name || ""} ${formData.last_name || ""}`.trim() || undefined,
+    full_name: `${formData.first_name || ""} ${formData.last_name || ""}`.trim() || null,
     email: formData.email || null,
     phone: formData.phone || null,
     company: formData.company || null,
@@ -70,7 +49,7 @@ export async function addContact(formData) {
 
   const { data, error } = await supabase.from("contacts").insert(newContact).select().single();
   if (error) {
-    if (error.code === '23505') throw new Error("A contact with this email already exists in your workspace.");
+    if (error.code === "23505") throw new Error("A contact with this email already exists in your workspace.");
     throw new Error(error.message);
   }
 
@@ -80,12 +59,11 @@ export async function addContact(formData) {
 }
 
 export async function updateContact(id, formData) {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
   const updates = {
     ...formData,
-    full_name: `${formData.first_name || ""} ${formData.last_name || ""}`.trim() || undefined,
+    full_name: `${formData.first_name || ""} ${formData.last_name || ""}`.trim() || null,
     updated_at: new Date().toISOString()
   };
 
@@ -104,8 +82,7 @@ export async function updateContact(id, formData) {
 }
 
 export async function deleteContact(id) {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
   const { error } = await supabase
     .from("contacts")
@@ -121,15 +98,14 @@ export async function deleteContact(id) {
 }
 
 export async function importContactsBatch(contactsArray) {
-  const supabase = createClient();
-  const { workspaceId } = await getWorkspaceContext(supabase);
+  const { supabase, workspaceId } = await getWorkspaceContext();
 
   // Normalize and bind workspace id
   const payload = contactsArray.map(c => ({
     workspace_id: workspaceId,
     first_name: c.first_name || null,
     last_name: c.last_name || null,
-    full_name: c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || undefined,
+    full_name: c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || null,
     email: c.email || null,
     phone: c.phone || null,
     company: c.company || null,
@@ -143,8 +119,7 @@ export async function importContactsBatch(contactsArray) {
     stage: "Cold"
   }));
 
-  // Fetch existing emails to deduplicate accurately based on email
-  // If no email exists, we check company+full_name
+  // Fetch existing emails to deduplicate
   const { data: existing } = await supabase
     .from("contacts")
     .select("email, full_name, company")
@@ -168,7 +143,6 @@ export async function importContactsBatch(contactsArray) {
       duplicates++;
     } else {
       validPayload.push(row);
-      // add to sets to prevent dupes within the payload itself
       if (row.email) existingEmails.add(row.email.toLowerCase());
       if (row.full_name && row.company) existingNames.add(`${row.full_name.toLowerCase()}|${row.company.toLowerCase()}`);
     }
@@ -185,8 +159,8 @@ export async function importContactsBatch(contactsArray) {
   return { 
     totalRows: contactsArray.length, 
     validRows: validPayload.length + duplicates, 
-    duplicates: duplicates,
-    skipped: duplicates, // Phase 2: duplicates are skipped
+    duplicates,
+    skipped: duplicates,
     imported: validPayload.length 
   };
 }
