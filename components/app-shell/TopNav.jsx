@@ -1,6 +1,8 @@
-import { Bell, Search, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
+import GlobalSearch from "./GlobalSearch";
+import ActivityFeed from "./ActivityFeed";
 
 export default async function TopNav() {
   const supabase = createClient();
@@ -13,21 +15,10 @@ export default async function TopNav() {
   return (
     <header className="h-16 border-b border-white/5 bg-brand-background/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-30">
       <div className="flex flex-1">
-        <div className="w-full max-w-md relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-muted pointer-events-none" />
-          <input 
-            type="text" 
-            disabled
-            title="Global Search (Phase 6)"
-            placeholder="Search (Phase 6)..." 
-            className="w-full bg-obsidian-900 border border-white/10 rounded-md pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-brand-muted opacity-50 cursor-not-allowed"
-          />
-        </div>
+        <GlobalSearch />
       </div>
       <div className="flex items-center space-x-4">
-        <button disabled title="Notifications (Phase 6)" className="text-brand-muted opacity-50 cursor-not-allowed transition-colors">
-          <Bell className="h-5 w-5" />
-        </button>
+        <ActivityFeed />
         <div className="flex items-center space-x-3 pl-4 border-l border-white/5">
           <div className="flex flex-col items-end hidden sm:flex">
              <span className="text-xs font-medium text-white">{user?.user_metadata?.full_name || user?.email}</span>

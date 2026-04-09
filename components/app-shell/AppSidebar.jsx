@@ -23,13 +23,13 @@ export default function AppSidebar() {
       </div>
       
       <div className="p-4 border-b border-white/5">
-        <button disabled title="Workspace switching (Phase 6)" className="w-full flex items-center justify-between bg-white/5 p-2 rounded-md transition-colors border border-white/5 opacity-50 cursor-not-allowed">
+        <div title="Workspace switching (Phase 7)" className="w-full flex items-center justify-between bg-white/5 p-2 rounded-md transition-colors border border-white/5 opacity-70 cursor-not-allowed">
           <div className="flex items-center">
-            <div className="w-6 h-6 bg-brand-primary rounded mr-2 flex items-center justify-center text-xs font-bold text-white">A</div>
-            <span className="text-sm font-medium text-white">Acme Corp</span>
+            <div className="w-6 h-6 bg-brand-primary rounded mr-2 flex items-center justify-center text-xs font-bold text-white">W</div>
+            <span className="text-sm font-medium text-white">Current Workspace</span>
           </div>
           <span className="text-xs text-brand-muted shrink-0 text-brand-muted select-none">▼</span>
-        </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
@@ -66,14 +66,18 @@ export default function AppSidebar() {
       </div>
 
       <div className="p-4 border-t border-white/5">
-        <button 
-          disabled
-          title="Settings (Phase 6)"
-          className="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all text-brand-muted opacity-50 cursor-not-allowed"
+        <Link 
+          href="/settings"
+          className={cn(
+            "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all",
+            currentPath === "/settings" 
+              ? "bg-brand-primary/10 text-brand-primary" 
+              : "text-brand-muted hover:bg-white/5 hover:text-white"
+          )}
         >
-          <Settings className="mr-3 h-5 w-5 shrink-0" />
-          Settings (Phase 6)
-        </button>
+          <Settings className={cn("mr-3 h-5 w-5 shrink-0", currentPath === "/settings" ? "text-brand-primary" : "")} />
+          Settings
+        </Link>
       </div>
     </aside>
   );
