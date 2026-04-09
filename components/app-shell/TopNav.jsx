@@ -18,14 +18,14 @@ export default async function TopNav() {
           <input 
             type="text" 
             disabled
-            title="Global Search (Phase 5)"
-            placeholder="Search (Phase 5)..." 
+            title="Global Search (Phase 6)"
+            placeholder="Search (Phase 6)..." 
             className="w-full bg-obsidian-900 border border-white/10 rounded-md pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-brand-primary transition-all placeholder:text-brand-muted opacity-50 cursor-not-allowed"
           />
         </div>
       </div>
       <div className="flex items-center space-x-4">
-        <button disabled title="Notifications (Phase 5)" className="text-brand-muted opacity-50 cursor-not-allowed transition-colors">
+        <button disabled title="Notifications (Phase 6)" className="text-brand-muted opacity-50 cursor-not-allowed transition-colors">
           <Bell className="h-5 w-5" />
         </button>
         <div className="flex items-center space-x-3 pl-4 border-l border-white/5">

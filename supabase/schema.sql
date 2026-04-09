@@ -107,3 +107,29 @@ CREATE TABLE IF NOT EXISTS public.sequence_enrollments (
 -- IMPORTANT:
 -- Do NOT enable RLS yet unless you are also creating the correct policies.
 -- RLS without policies can break signup/login flows.
+
+-- Inbox Threads
+CREATE TABLE IF NOT EXISTS public.inbox_threads (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    contact_id UUID REFERENCES public.contacts(id) ON DELETE SET NULL,
+    subject TEXT NOT NULL,
+    state TEXT DEFAULT 'open',
+    sentiment TEXT,
+    last_message_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Inbox Messages
+CREATE TABLE IF NOT EXISTS public.inbox_messages (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    thread_id UUID REFERENCES public.inbox_threads(id) ON DELETE CASCADE,
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    sender_type TEXT DEFAULT 'system', -- 'contact', 'user', 'system'
+    sender_name TEXT,
+    sender_email TEXT,
+    body TEXT NOT NULL,
+    is_ai_generated BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);

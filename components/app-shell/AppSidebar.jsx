@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/ai-writer", label: "AI Writer", icon: BookOpenCheck },
   { href: "/sequences", label: "Sequences", icon: Zap },
-  { href: "/inbox", label: "Inbox (Phase 5)", icon: Inbox, disabled: true },
+  { href: "/inbox", label: "Inbox", icon: Inbox },
 ];
 
 export default function AppSidebar() {
@@ -23,7 +23,7 @@ export default function AppSidebar() {
       </div>
       
       <div className="p-4 border-b border-white/5">
-        <button disabled title="Workspace switching (Phase 5)" className="w-full flex items-center justify-between bg-white/5 p-2 rounded-md transition-colors border border-white/5 opacity-50 cursor-not-allowed">
+        <button disabled title="Workspace switching (Phase 6)" className="w-full flex items-center justify-between bg-white/5 p-2 rounded-md transition-colors border border-white/5 opacity-50 cursor-not-allowed">
           <div className="flex items-center">
             <div className="w-6 h-6 bg-brand-primary rounded mr-2 flex items-center justify-center text-xs font-bold text-white">A</div>
             <span className="text-sm font-medium text-white">Acme Corp</span>
@@ -68,11 +68,11 @@ export default function AppSidebar() {
       <div className="p-4 border-t border-white/5">
         <button 
           disabled
-          title="Settings (Phase 5)"
+          title="Settings (Phase 6)"
           className="w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all text-brand-muted opacity-50 cursor-not-allowed"
         >
           <Settings className="mr-3 h-5 w-5 shrink-0" />
-          Settings (Phase 5)
+          Settings (Phase 6)
         </button>
       </div>
     </aside>

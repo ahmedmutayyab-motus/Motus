@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, GripVertical, Check, PauseCircle, PlayCircle, Loader2, Save, Trash2, X, Users, MessageSquare, Briefcase, Plus, HelpCircle } from "lucide-react";
+import { ArrowLeft, GripVertical, Check, PauseCircle, PlayCircle, Loader2, Save, Trash2, X, Users, MessageSquare, Briefcase, Plus, HelpCircle, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { getSequenceById, updateSequenceStatus, updateSequenceMetadata, saveSequenceSteps, enrollContacts } from "@/app/actions/sequences";
 import { getContacts } from "@/app/actions/contacts";
@@ -124,6 +124,18 @@ export default function SequenceEditorPage() {
     setSteps(prev => prev.filter((_, i) => i !== index));
   }
 
+  function moveStep(index, direction) {
+    if (direction === -1 && index === 0) return;
+    if (direction === 1 && index === steps.length - 1) return;
+    setSteps(prev => {
+      const arr = [...prev];
+      const temp = arr[index];
+      arr[index] = arr[index + direction];
+      arr[index + direction] = temp;
+      return arr;
+    });
+  }
+
   function updateStep(index, field, value) {
     setSteps(prev => {
       const arr = [...prev];
@@ -237,9 +249,18 @@ export default function SequenceEditorPage() {
                                           </div>
                                         </div>
                                      </div>
-                                     <button onClick={() => removeStep(idx)} className="opacity-0 group-hover:opacity-100 p-1.5 text-brand-muted hover:text-red-400 bg-white/5 hover:bg-red-500/10 rounded transition-all">
-                                        <Trash2 className="h-4 w-4" />
-                                     </button>
+                                     <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                       <button onClick={() => moveStep(idx, -1)} disabled={idx === 0} className="p-1.5 text-brand-muted hover:text-white bg-white/5 rounded transition-all disabled:opacity-30">
+                                          <ArrowUp className="h-4 w-4" />
+                                       </button>
+                                       <button onClick={() => moveStep(idx, 1)} disabled={idx === steps.length - 1} className="p-1.5 text-brand-muted hover:text-white bg-white/5 rounded transition-all disabled:opacity-30">
+                                          <ArrowDown className="h-4 w-4" />
+                                       </button>
+                                       <div className="w-px h-4 bg-white/10 mx-1"></div>
+                                       <button onClick={() => removeStep(idx)} className="p-1.5 text-brand-muted hover:text-red-400 bg-white/5 hover:bg-red-500/10 rounded transition-all">
+                                          <Trash2 className="h-4 w-4" />
+                                       </button>
+                                     </div>
                                  </div>
                                  
                                  <div className="space-y-3 mt-4 pt-4 border-t border-white/5">
