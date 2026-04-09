@@ -3,15 +3,18 @@
 import { useState, useEffect } from "react";
 import {
   Settings as SettingsIcon, Building, User, Mail, Save, Users,
-  CreditCard, BarChart3, Zap, Crown, ArrowUpRight, Trash2, Shield, Globe
+  CreditCard, BarChart3, Zap, Crown, ArrowUpRight, Trash2, Shield, Globe,
+  PlugZap, Plus, Wifi, WifiOff, Clock, Send, X
 } from "lucide-react";
 import { getWorkspaceProfile, updateWorkspaceProfile, getUserProfile, updateUserProfile, getWorkspaceMembers } from "@/app/actions/settings";
 import { getCurrentPlan, getPlans, getUsageStats, createCheckoutSession, removeMember } from "@/app/actions/billing";
+import { getMailboxConnections, addMailboxConnection, removeMailboxConnection, getMailboxSyncStatus, getOutboundStats } from "@/app/actions/mailbox";
 import { toast } from "sonner";
 
 const TABS = [
   { key: "general", label: "General", icon: Building },
   { key: "billing", label: "Billing & Plan", icon: CreditCard },
+  { key: "mailbox", label: "Mailboxes", icon: PlugZap },
   { key: "members", label: "Team Members", icon: Users },
 ];
 
@@ -27,17 +30,26 @@ export default function SettingsPage() {
   const [currentPlan, setCurrentPlan] = useState(null);
   const [plans, setPlans] = useState([]);
   const [usage, setUsage] = useState(null);
+  const [mailboxes, setMailboxes] = useState([]);
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [outboundStats, setOutboundStats] = useState(null);
+  const [showAddMailbox, setShowAddMailbox] = useState(false);
+  const [addingMailbox, setAddingMailbox] = useState(false);
+  const [newMailbox, setNewMailbox] = useState({ provider_type: "smtp", label: "", from_email: "" });
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [usr, ws, mems, plan, allPlans, usageData] = await Promise.all([
+        const [usr, ws, mems, plan, allPlans, usageData, mboxes, sync, outbound] = await Promise.all([
           getUserProfile(),
           getWorkspaceProfile(),
           getWorkspaceMembers(),
           getCurrentPlan(),
           getPlans(),
-          getUsageStats()
+          getUsageStats(),
+          getMailboxConnections(),
+          getMailboxSyncStatus(),
+          getOutboundStats()
         ]);
         setUserData(usr);
         setWorkspaceData(ws);
@@ -45,6 +57,9 @@ export default function SettingsPage() {
         setCurrentPlan(plan);
         setPlans(allPlans);
         setUsage(usageData);
+        setMailboxes(mboxes);
+        setSyncStatus(sync);
+        setOutboundStats(outbound);
       } catch (err) {
         toast.error("Failed to load settings data.");
       } finally {
@@ -103,6 +118,46 @@ export default function SettingsPage() {
       toast.error(err.message || "Failed to remove member.");
     }
   }
+
+  async function handleAddMailbox(e) {
+    e.preventDefault();
+    setAddingMailbox(true);
+    try {
+      const created = await addMailboxConnection(newMailbox);
+      setMailboxes(prev => [created, ...prev]);
+      setNewMailbox({ provider_type: "smtp", label: "", from_email: "" });
+      setShowAddMailbox(false);
+      toast.success("Mailbox connection added.");
+    } catch (err) {
+      toast.error(err.message || "Failed to add mailbox.");
+    } finally {
+      setAddingMailbox(false);
+    }
+  }
+
+  async function handleRemoveMailbox(id) {
+    if (!confirm("Remove this mailbox connection?")) return;
+    try {
+      await removeMailboxConnection(id);
+      setMailboxes(prev => prev.filter(m => m.id !== id));
+      toast.success("Mailbox removed.");
+    } catch (err) {
+      toast.error(err.message || "Failed to remove mailbox.");
+    }
+  }
+
+  const STATUS_STYLES = {
+    connected: "bg-green-500/15 text-green-400",
+    pending: "bg-yellow-500/15 text-yellow-400",
+    disconnected: "bg-white/5 text-brand-muted",
+    error: "bg-red-500/15 text-red-400",
+  };
+  const STATUS_ICONS = {
+    connected: <Wifi className="h-3 w-3" />,
+    pending: <Clock className="h-3 w-3" />,
+    disconnected: <WifiOff className="h-3 w-3" />,
+    error: <X className="h-3 w-3" />,
+  };
 
   if (loading) {
     return (
@@ -459,6 +514,202 @@ export default function SettingsPage() {
                 <h4 className="text-sm font-medium text-brand-light mb-1">Team Invitations</h4>
                 <p className="text-xs text-brand-muted leading-relaxed">
                   Email-based team invitations will be available in a future update. Currently, workspace membership is managed during signup.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MAILBOX TAB */}
+      {activeTab === "mailbox" && (
+        <div className="space-y-8">
+          {/* Connection List */}
+          <div className="bg-brand-surface border border-white/5 rounded-xl overflow-hidden glass-panel">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-medium text-brand-light flex items-center gap-2">
+                  <PlugZap className="h-5 w-5 text-brand-amber/80" />
+                  Mailbox Connections
+                </h2>
+                <p className="text-sm text-brand-muted mt-1">
+                  {mailboxes.length} connection{mailboxes.length !== 1 ? "s" : ""} configured.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAddMailbox(!showAddMailbox)}
+                className="bg-brand-amber text-brand-dark px-3 py-1.5 rounded-md text-sm font-medium hover:bg-brand-amber/90 transition-colors flex items-center gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Mailbox
+              </button>
+            </div>
+
+            {/* Add Mailbox Form */}
+            {showAddMailbox && (
+              <form onSubmit={handleAddMailbox} className="p-6 border-b border-white/5 bg-brand-background/30 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-brand-light/80">Provider</label>
+                    <select
+                      value={newMailbox.provider_type}
+                      onChange={(e) => setNewMailbox({ ...newMailbox, provider_type: e.target.value })}
+                      className="w-full bg-brand-surface/50 border border-white/10 rounded-md px-3 py-2 text-sm text-brand-light focus:outline-none focus:border-brand-amber/50"
+                    >
+                      <option value="smtp">SMTP</option>
+                      <option value="gmail">Gmail</option>
+                      <option value="outlook">Outlook</option>
+                      <option value="imap">IMAP</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-brand-light/80">Label</label>
+                    <input
+                      type="text"
+                      value={newMailbox.label}
+                      onChange={(e) => setNewMailbox({ ...newMailbox, label: e.target.value })}
+                      placeholder="Work Email"
+                      required
+                      className="w-full bg-brand-surface/50 border border-white/10 rounded-md px-3 py-2 text-sm text-brand-light focus:outline-none focus:border-brand-amber/50"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-brand-light/80">From Email</label>
+                    <input
+                      type="email"
+                      value={newMailbox.from_email}
+                      onChange={(e) => setNewMailbox({ ...newMailbox, from_email: e.target.value })}
+                      placeholder="you@company.com"
+                      required
+                      className="w-full bg-brand-surface/50 border border-white/10 rounded-md px-3 py-2 text-sm text-brand-light focus:outline-none focus:border-brand-amber/50"
+                    />
+                  </div>
+                </div>
+                {(newMailbox.provider_type === "gmail" || newMailbox.provider_type === "outlook") && (
+                  <p className="text-xs text-yellow-400/80 bg-yellow-400/5 border border-yellow-400/10 rounded-md px-3 py-2">
+                    OAuth integration for {newMailbox.provider_type === "gmail" ? "Gmail" : "Outlook"} will be available in a future update.
+                    This connection will be created in &quot;pending&quot; status until provider auth is configured.
+                  </p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setShowAddMailbox(false)} className="px-3 py-1.5 text-sm text-brand-muted hover:text-brand-light transition-colors">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={addingMailbox || !newMailbox.label || !newMailbox.from_email}
+                    className="bg-brand-amber text-brand-dark px-4 py-1.5 rounded-md text-sm font-medium hover:bg-brand-amber/90 transition-colors disabled:opacity-50"
+                  >
+                    {addingMailbox ? "Adding..." : "Add Connection"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Connection rows */}
+            <div className="divide-y divide-white/5">
+              {mailboxes.length === 0 ? (
+                <div className="p-8 text-center text-brand-muted text-sm">
+                  No mailbox connections yet. Add one to get started.
+                </div>
+              ) : (
+                mailboxes.map((mb) => (
+                  <div key={mb.id} className="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-lg bg-brand-amber/10 text-brand-amber flex items-center justify-center">
+                        <Mail className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-brand-light">{mb.label}</p>
+                        <p className="text-xs text-brand-muted">{mb.from_email} &bull; {mb.provider_label}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_STYLES[mb.status] || STATUS_STYLES.disconnected}`}>
+                        {STATUS_ICONS[mb.status] || STATUS_ICONS.disconnected}
+                        {mb.status}
+                      </span>
+                      {mb.last_sync_at && (
+                        <span className="text-[10px] text-brand-muted hidden sm:block">
+                          Synced {new Date(mb.last_sync_at).toLocaleDateString()}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleRemoveMailbox(mb.id)}
+                        className="p-1.5 rounded-md hover:bg-red-500/10 text-brand-muted hover:text-red-400 transition-colors"
+                        title="Remove connection"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Sync + Send Pipeline Status Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Inbox Sync Status */}
+            <div className="bg-brand-surface border border-white/5 rounded-xl p-6 glass-panel">
+              <div className="flex items-center gap-2 mb-4">
+                <Wifi className="h-4 w-4 text-brand-amber" />
+                <h3 className="text-brand-light font-medium text-sm">Inbox Sync Readiness</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-brand-muted">Connected Mailboxes</span>
+                  <span className="text-brand-light font-medium">{syncStatus?.connectedCount || 0} / {syncStatus?.totalConnections || 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-brand-muted">Sync Status</span>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${syncStatus?.syncReady ? "bg-green-500/15 text-green-400" : "bg-white/5 text-brand-muted"}`}>
+                    {syncStatus?.syncReady ? "Ready" : "Not Ready"}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-white/5">
+                <p className="text-[11px] text-brand-muted leading-relaxed">
+                  Real-time inbox sync will activate once a mailbox is fully connected with provider credentials. Thread and message ingestion will map into the existing inbox data model.
+                </p>
+              </div>
+            </div>
+
+            {/* Send Pipeline Status */}
+            <div className="bg-brand-surface border border-white/5 rounded-xl p-6 glass-panel">
+              <div className="flex items-center gap-2 mb-4">
+                <Send className="h-4 w-4 text-brand-amber" />
+                <h3 className="text-brand-light font-medium text-sm">Send Pipeline</h3>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Drafts", value: outboundStats?.drafts ?? 0 },
+                  { label: "Queued", value: outboundStats?.queued ?? 0 },
+                  { label: "Sent", value: outboundStats?.sent ?? 0 },
+                ].map((s, i) => (
+                  <div key={i} className="bg-brand-background/50 rounded-lg p-3 border border-white/5 text-center">
+                    <p className="text-lg font-bold text-brand-light">{s.value}</p>
+                    <p className="text-[10px] text-brand-muted uppercase tracking-wider">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 pt-4 border-t border-white/5">
+                <p className="text-[11px] text-brand-muted leading-relaxed">
+                  Outbound sending will execute through connected mailboxes. The dispatch engine activates once provider credentials and send limits are configured.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Provider Auth Notice */}
+          <div className="bg-brand-surface/30 border border-dashed border-white/10 rounded-xl p-5">
+            <div className="flex items-start gap-3">
+              <Shield className="h-5 w-5 text-brand-muted mt-0.5 shrink-0" />
+              <div>
+                <h4 className="text-sm font-medium text-brand-light mb-1">Provider Authentication</h4>
+                <p className="text-xs text-brand-muted leading-relaxed">
+                  Gmail and Outlook connections require OAuth app setup. SMTP connections require host/port/credentials configuration. These provider authentication flows will be wired in a dedicated infrastructure update.
                 </p>
               </div>
             </div>

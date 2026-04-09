@@ -141,7 +141,7 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
     stripe_customer_id TEXT,
     stripe_subscription_id TEXT,
     plan_key TEXT DEFAULT 'free',
-    billing_status TEXT DEFAULT 'active',
+    billing_status TEXT DEFAULT 'inactive',
     current_period_end TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -149,3 +149,38 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
 
 -- Add plan_key to workspaces if not present
 ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS plan_key TEXT DEFAULT 'free';
+
+-- Phase 8: Mailbox Connections
+CREATE TABLE IF NOT EXISTS public.mailbox_connections (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    provider_type TEXT NOT NULL DEFAULT 'smtp',
+    label TEXT NOT NULL,
+    from_email TEXT NOT NULL,
+    status TEXT DEFAULT 'disconnected',
+    external_account_id TEXT,
+    credentials_ref TEXT,
+    last_sync_at TIMESTAMPTZ,
+    last_sync_status TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (workspace_id, from_email)
+);
+
+-- Phase 8: Outbound Messages (Send Pipeline Groundwork)
+CREATE TABLE IF NOT EXISTS public.outbound_messages (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    mailbox_connection_id UUID REFERENCES public.mailbox_connections(id) ON DELETE SET NULL,
+    contact_id UUID REFERENCES public.contacts(id) ON DELETE SET NULL,
+    sequence_id UUID REFERENCES public.sequences(id) ON DELETE SET NULL,
+    subject TEXT,
+    body TEXT,
+    status TEXT DEFAULT 'draft',
+    provider_message_id TEXT,
+    scheduled_at TIMESTAMPTZ,
+    sent_at TIMESTAMPTZ,
+    delivery_status TEXT DEFAULT 'pending',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
