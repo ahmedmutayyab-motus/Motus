@@ -145,6 +145,8 @@ export default function SequenceEditorPage() {
     );
   }
 
+  if (!sequence) return null;
+
   return (
     <div className="h-full flex flex-col max-w-6xl mx-auto space-y-6">
       
